@@ -19,7 +19,6 @@ function App() {
 
   const fetchData = () => {
     axios.get("http://localhost:3001/covid-data/all").then((res) => {
-      console.log(res.data);
       setFullData(res.data);
     });
   };
@@ -49,6 +48,11 @@ function App() {
     setTime(moment().format("HH:mm:ss"));
   }, 1000);
 
+  const getDuration = (end, start) => {
+    var duration = moment.duration(end.diff(start));
+    return duration.asHours();
+  };
+
   return (
     <div className="App">
       <Modal show={show} onHide={handleClose}>
@@ -63,9 +67,7 @@ function App() {
               return (
                 <div>
                   <div>{log.date}</div>
-                  <div>
-                    Added {log.data.length}
-                  </div>
+                  <div>Added {log.data.length}</div>
                 </div>
               );
             })
@@ -77,13 +79,17 @@ function App() {
           </Button>
         </Modal.Footer>
       </Modal>
-      <div className="title">Covid API</div>
+      <div className="title">United States Covid API</div>
       <div className="times">{time}</div>
       <div className="">Resetted every 11.59 PM</div>
 
       <button className="btn btn-primary mt-4 mb-4" onClick={handleShow}>
         Check Logs
       </button>
+      <div className="d-flex  align-items-center">
+        <div className="label"></div>
+        <div className="text-label">Just updated</div>
+      </div>
       <table className="table">
         <thead>
           <tr>
@@ -92,6 +98,8 @@ function App() {
             <th scope="col">Total Test</th>
             <th scope="col">Death</th>
             <th scope="col">Hospitalize</th>
+            <th scope="col">On Ventilator</th>
+
             <th scope="col">In ICU</th>
             <th scope="col">Negative</th>
             <th scope="col">Positive</th>
@@ -104,9 +112,9 @@ function App() {
                 <tr
                   key={idx}
                   className={
-                    moment(data.createdOn).format("HH:mm") === "23:59"
-                      ? "bg-green"
-                      : ""
+                    getDuration(moment(), moment(data.createdOn)) <= 24
+                      ? `bg-green`
+                      : ``
                   }
                 >
                   <th>{idx + 1}</th>
@@ -116,6 +124,7 @@ function App() {
                   <td>{abbreviate(data.totalTestResults)}</td>
                   <td>{abbreviate(data.death)}</td>
                   <td>{abbreviate(data.hospitalized)}</td>
+                  <td>{abbreviate(data.onVentilatorCumulative)}</td>
                   <td>{abbreviate(data.inIcuCumulative)}</td>
                   <td>{abbreviate(data.negative)}</td>
                   <td>{abbreviate(data.positive)}</td>
