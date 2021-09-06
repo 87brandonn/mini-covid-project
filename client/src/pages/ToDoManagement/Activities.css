@@ -1,0 +1,7 @@
+.table {
+    color: unset !important
+}
+
+label, select{
+    color: black
+}

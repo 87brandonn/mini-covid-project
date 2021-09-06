@@ -49,6 +49,10 @@
   color: white;
 }
 
+.modal-dialog {
+  color: black;
+}
+
 .App-link {
   color: #61dafb;
 }
