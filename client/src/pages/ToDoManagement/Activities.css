@@ -9,3 +9,8 @@ label, select{
 svg {
     cursor: pointer;
 }
+
+.footer {
+    margin-top: 5rem;
+    margin-bottom: 10rem;
+}

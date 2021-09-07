@@ -14,6 +14,7 @@ import {
   faTrashAlt,
   faEdit,
   faUndo,
+  faCheckDouble,
 } from "@fortawesome/free-solid-svg-icons";
 
 import moment from "moment";
@@ -45,7 +46,7 @@ function Activites() {
   const fetchMostUrgent = () => {
     axios.get("https://localhost:5001/api/todolists/urgent").then((res) => {
       console.log(res.data);
-      setMostUrgent(res.data[0]);
+      if (res.data.objRequestData.length > 0) setMostUrgent(res.data.objRequestData[0]);
     });
   };
 
@@ -57,9 +58,10 @@ function Activites() {
         },
       })
       .then((res) => {
+        console.log(res.data);
         query == true
-          ? setFinishedActivities(res.data)
-          : setUnfinishedActivities(res.data);
+          ? setFinishedActivities(res.data.objRequestData)
+          : setUnfinishedActivities(res.data.objRequestData);
       });
   };
 
@@ -120,6 +122,18 @@ function Activites() {
       });
   };
 
+  const handleUndo = (activity) => {
+    axios
+      .post(`https://localhost:5001/api/todolists/edit`, {
+        ...activity,
+        bitFinished: false,
+      })
+      .then((res) => {
+        fetchFinishedAct(false);
+        fetchFinishedAct(true);
+      });
+  };
+
   const handleFinish = (activity) => {
     axios
       .post(`https://localhost:5001/api/todolists/edit`, {
@@ -129,15 +143,12 @@ function Activites() {
       .then((res) => {
         fetchFinishedAct(false);
         fetchFinishedAct(true);
+        fetchMostUrgent();
       });
   };
 
   const updateWarnings = (activity) => {
-    // console.log(activity);
-    handleFinish(activity)
-    fetchMostUrgent()
-
-    
+    handleFinish(activity);
   };
 
   const onSubmit = (data) => {
@@ -155,7 +166,7 @@ function Activites() {
       setValue("description", "");
       setValue("reminder", "");
       fetchFinishedAct(false);
-      fetchMostUrgent()
+      fetchMostUrgent();
     });
   };
 
@@ -377,148 +388,156 @@ function Activites() {
       <div className="fs-2 mt-5 mb-2 text-center fw-bold">
         Your Unfinished Activity <FontAwesomeIcon icon={faTimes} color="red" />
       </div>
-      <div className="mb-2">
-        This is your unfinished activities, please make sure to finish it before
-        the due date comes.
-      </div>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th scope="col">No</th>
-            <th scope="col">Activity</th>
-            <th scope="col">Due</th>
-            <th scope="col">Description</th>
-            <th scope="col">Reminder</th>
-            <th scope="col"></th>
-            <th scope="col"></th>
-            <th scope="col"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {unFinishedActivities &&
-            unFinishedActivities.map((activity, idx) => {
-              return (
-                <tr key={idx}>
-                  <th scope="row">{idx + 1}</th>
-                  <td>{activity.txtName}</td>
-                  <td
-                    className={`due-tab ${
-                      getDuration(moment(), moment(activity.dtTimestamp)) <= 24
-                        ? `text-danger`
-                        : ""
-                    }`}
-                  >
-                    <OverlayTrigger
-                      placement="top"
-                      overlay={renderTooltip(activity.dtTimestamp)}
-                    >
-                      <div>
-                        {getDuration(moment(), moment(activity.dtTimestamp)) <=
-                        24
-                          ? `${getDuration(
+      {unFinishedActivities && unFinishedActivities.length == 0 ? (
+        <div className="text-center fs-5">
+          All your activities has been finished. Start adding more activities!
+        </div>
+      ) : (
+        <>
+          <div className="mb-2">
+            This is your unfinished activities, please make sure to finish it
+            before the due date comes.
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">No</th>
+                <th scope="col">Activity</th>
+                <th scope="col">Due</th>
+                <th scope="col">Description</th>
+                <th scope="col">Reminder</th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {unFinishedActivities &&
+                unFinishedActivities.map((activity, idx) => {
+                  return (
+                    <tr key={idx}>
+                      <th scope="row">{idx + 1}</th>
+                      <td>{activity.txtName}</td>
+                      <td
+                        className={`due-tab ${
+                          getDuration(moment(), moment(activity.dtTimestamp)) <=
+                          24
+                            ? `text-danger`
+                            : ""
+                        }`}
+                      >
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={renderTooltip(activity.dtTimestamp)}
+                        >
+                          <div>
+                            {getDuration(
                               moment(),
                               moment(activity.dtTimestamp)
-                            )} hours`
-                          : moment(activity.dtTimestamp).fromNow()}
-                      </div>
-                    </OverlayTrigger>
-                  </td>
-                  <td>{activity.txtDescription}</td>
-                  <td>{activity.bitReminder ? "Yes" : "No"}</td>
-                  <td>
-                    <FontAwesomeIcon
-                      icon={faEdit}
-                      onClick={() => handleEdit(activity)}
-                    />
-                  </td>
-                  <td>
-                    <FontAwesomeIcon
-                      icon={faTrash}
-                      color="red"
-                      onClick={() => handleDelete(activity.txtId)}
-                    ></FontAwesomeIcon>
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handleFinish(activity)}
-                    >
-                      Finish
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-        </tbody>
-      </table>
+                            ) <= 24
+                              ? `${getDuration(
+                                  moment(),
+                                  moment(activity.dtTimestamp)
+                                )} hours`
+                              : moment(activity.dtTimestamp).fromNow()}
+                          </div>
+                        </OverlayTrigger>
+                      </td>
+                      <td>{activity.txtDescription}</td>
+                      <td>{activity.bitReminder ? "Yes" : "No"}</td>
+                      <td>
+                        <FontAwesomeIcon
+                          icon={faEdit}
+                          onClick={() => handleEdit(activity)}
+                        />
+                      </td>
+                      <td>
+                        <FontAwesomeIcon
+                          icon={faTrash}
+                          color="red"
+                          onClick={() => handleDelete(activity.txtId)}
+                        ></FontAwesomeIcon>
+                      </td>
+                      <td>
+                        <FontAwesomeIcon
+                          icon={faCheckDouble}
+                          onClick={() => handleFinish(activity)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </>
+      )}
 
       <div className="fs-2 mt-5 mb-2 text-center fw-bold">
         Your Finished Activity{" "}
         <FontAwesomeIcon icon={faCheckSquare} color="green" />
       </div>
 
-      <div className="mb-2">
-        This is your finished activities, you can revert anytime if there is
-        something that needs to be added.
-      </div>
+      {finishedActivities && finishedActivities.length == 0 ? (
+        <div className="text-center fs-5">
+          There is no job that currently finished, start finish your task one by
+          one.
+        </div>
+      ) : (
+        <>
+          <div className="mb-2">
+            This is your finished activities, you can revert anytime if there is
+            something that needs to be added.
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">No</th>
+                <th scope="col">Activity</th>
+                <th scope="col">Description</th>
+                <th scope="col">Reminder</th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {finishedActivities &&
+                finishedActivities.map((activity, idx) => {
+                  return (
+                    <tr key={idx}>
+                      <th scope="row">{idx + 1}</th>
+                      <td>{activity.txtName}</td>
+                      <td>{activity.txtDescription}</td>
+                      <td>{activity.bitReminder ? "Yes" : "No"}</td>
+                      <td>
+                        <FontAwesomeIcon
+                          icon={faEdit}
+                          onClick={() => handleEdit(activity)}
+                        />
+                      </td>
+                      <td>
+                        <FontAwesomeIcon
+                          icon={faTrash}
+                          color="red"
+                          onClick={() => handleDelete(activity.txtId)}
+                        ></FontAwesomeIcon>
+                      </td>
+                      <td>
+                        <FontAwesomeIcon
+                          icon={faUndo}
+                          onClick={() => handleUndo(activity)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </>
+      )}
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th scope="col">No</th>
-            <th scope="col">Activity</th>
-            <th scope="col">Due</th>
-            <th scope="col">Description</th>
-            <th scope="col">Reminder</th>
-            <th scope="col"></th>
-            <th scope="col"></th>
-            <th scope="col"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {finishedActivities &&
-            finishedActivities.map((activity, idx) => {
-              return (
-                <tr key={idx}>
-                  <th scope="row">{idx + 1}</th>
-                  <td>{activity.txtName}</td>
-                  <td className={`due-tab`}>
-                    <OverlayTrigger
-                      placement="top"
-                      overlay={renderTooltip(activity.dtTimestamp)}
-                    >
-                      <div>{moment(activity.dtTimestamp).fromNow()}</div>
-                    </OverlayTrigger>
-                  </td>
-                  <td>{activity.txtDescription}</td>
-                  <td>{activity.bitReminder ? "Yes" : "No"}</td>
-                  <td>
-                    <FontAwesomeIcon
-                      icon={faEdit}
-                      onClick={() => handleEdit(activity)}
-                    />
-                  </td>
-                  <td>
-                    <FontAwesomeIcon
-                      icon={faTrash}
-                      color="red"
-                      onClick={() => handleDelete(activity.txtId)}
-                    ></FontAwesomeIcon>
-                  </td>
-                  <td>
-                    <FontAwesomeIcon
-                      icon={faUndo}
-                      onClick={() => handleDelete(activity.txtId)}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-        </tbody>
-      </table>
-
-      <div className="mt-5 mb-5"></div>
+      <div className="footer"></div>
     </div>
   );
 }
