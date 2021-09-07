@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/87brandonn/mini-project#readme",
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^1.2.36",
     "axios": "^0.21.2",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",

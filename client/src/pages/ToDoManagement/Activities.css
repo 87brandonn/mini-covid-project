@@ -5,3 +5,7 @@
 label, select{
     color: black
 }
+
+svg {
+    cursor: pointer;
+}

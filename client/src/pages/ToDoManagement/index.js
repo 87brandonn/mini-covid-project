@@ -5,6 +5,17 @@ import { Modal, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCheck,
+  faCheckSquare,
+  faTimes,
+  faTrash,
+  faTrashAlt,
+  faEdit,
+  faUndo,
+} from "@fortawesome/free-solid-svg-icons";
+
 import moment from "moment";
 
 const renderTooltip = (props) => (
@@ -15,7 +26,7 @@ const renderTooltip = (props) => (
 
 const getDuration = (start, end) => {
   var duration = moment.duration(end.diff(start));
-  return duration.asHours();
+  return Math.floor(duration.asHours());
 };
 
 function Activites() {
@@ -24,15 +35,42 @@ function Activites() {
   const [editedActivity, setEditedActivity] = useState({});
   const [show, setShow] = useState(false);
   const [showSucess, setShowSucess] = useState(false);
+  const [finishedActivities, setFinishedActivities] = useState([]);
+  const [unFinishedActivities, setUnfinishedActivities] = useState([]);
+  const [currentTime, setCurrentTime] = useState(moment().format("hh:mm:ss A"));
+  const [disableWarning, setDisableWarning] = useState(false);
 
-  const fetchActivities = () => {
-    axios.get("https://localhost:5001/api/todolists/all").then((res) => {
-      setActivitiesData(res.data);
+  const [mostUrgent, setMostUrgent] = useState({});
+
+  const fetchMostUrgent = () => {
+    axios.get("https://localhost:5001/api/todolists/urgent").then((res) => {
+      console.log(res.data);
+      setMostUrgent(res.data[0]);
     });
   };
 
+  const fetchFinishedAct = (query) => {
+    axios
+      .get("https://localhost:5001/api/todolists/all/sorted", {
+        params: {
+          finished: query,
+        },
+      })
+      .then((res) => {
+        query == true
+          ? setFinishedActivities(res.data)
+          : setUnfinishedActivities(res.data);
+      });
+  };
+
   useEffect(() => {
-    fetchActivities();
+    fetchFinishedAct(true);
+    fetchFinishedAct(false);
+    fetchMostUrgent();
+
+    setInterval(() => {
+      setCurrentTime(moment().format("hh:mm:ss A"));
+    }, 1000);
   }, []);
 
   const schema = yup.object().shape({
@@ -65,7 +103,8 @@ function Activites() {
   const handleDelete = (id) => {
     axios.delete(`https://localhost:5001/api/todolists/${id}`).then((res) => {
       setShowSucess(true);
-      fetchActivities();
+      fetchFinishedAct(true);
+      fetchFinishedAct(false);
     });
   };
   const handleEdit = (activity) => {
@@ -77,16 +116,37 @@ function Activites() {
       .post(`https://localhost:5001/api/todolists/edit`, editedActivity)
       .then((res) => {
         setShow(false);
-        fetchActivities();
+        fetchFinishedAct(editedActivity.bitFinished ? true : false);
       });
+  };
+
+  const handleFinish = (activity) => {
+    axios
+      .post(`https://localhost:5001/api/todolists/edit`, {
+        ...activity,
+        bitFinished: true,
+      })
+      .then((res) => {
+        fetchFinishedAct(false);
+        fetchFinishedAct(true);
+      });
+  };
+
+  const updateWarnings = (activity) => {
+    // console.log(activity);
+    handleFinish(activity)
+    fetchMostUrgent()
+
+    
   };
 
   const onSubmit = (data) => {
     const finalObj = {
-      Name: data.name,
-      TimeStamp: data.due,
-      Description: data.description,
-      Reminder: data.reminder == "1" ? true : false,
+      txtName: data.name,
+      dtTimeStamp: data.due,
+      txtDescription: data.description,
+      bitReminder: data.reminder == "1" ? true : false,
+      bitFinished: false,
     };
     console.log(finalObj);
     axios.post(`https://localhost:5001/api/todolists`, finalObj).then((res) => {
@@ -94,9 +154,11 @@ function Activites() {
       setValue("due", "");
       setValue("description", "");
       setValue("reminder", "");
-      fetchActivities();
+      fetchFinishedAct(false);
+      fetchMostUrgent()
     });
   };
+
   return (
     <div className="container">
       <Modal show={showSucess} onHide={() => setShowSucess(false)} centered>
@@ -112,7 +174,7 @@ function Activites() {
       </Modal>
       <Modal show={show} onHide={handleClose}>
         <Modal.Header>
-          <Modal.Title>Edit</Modal.Title>
+          <Modal.Title>Edit Activity</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="form-floating mb-3">
@@ -121,9 +183,12 @@ function Activites() {
               className="form-control"
               id="newName"
               placeholder="name@example.com"
-              defaultValue={editedActivity.Name}
+              defaultValue={editedActivity.txtName}
               onChange={(e) =>
-                setEditedActivity({ ...editedActivity, Name: e.target.value })
+                setEditedActivity({
+                  ...editedActivity,
+                  txtName: e.target.value,
+                })
               }
             />
             <label htmlFor="newName">Activity</label>
@@ -134,16 +199,14 @@ function Activites() {
               className="form-control"
               id="newDue"
               placeholder="name@example.com"
-              defaultValue={moment(editedActivity.TimeStamp).format(
-                "YYYY-MM-DDTHH:mm"
+              defaultValue={moment(editedActivity.dtTimeStamp).format(
+                "YYY-MM-DD hh:mm"
               )}
               onChange={(e) => {
                 setEditedActivity({
                   ...editedActivity,
-                  TimeStamp: e.target.value,
+                  dtTimeStamp: e.target.value,
                 });
-
-                console.log(editedActivity.TimeStamp);
               }}
             />
             <label htmlFor="newDue">Due</label>
@@ -154,11 +217,11 @@ function Activites() {
               id="newDescription"
               style={{ height: "6rem" }}
               placeholder="name@example.com"
-              defaultValue={editedActivity.Description}
+              defaultValue={editedActivity.txtDescription}
               onChange={(e) =>
                 setEditedActivity({
                   ...editedActivity,
-                  Description: e.target.value,
+                  txtDescription: e.target.value,
                 })
               }
             />
@@ -172,14 +235,14 @@ function Activites() {
               onChange={(e) =>
                 setEditedActivity({
                   ...editedActivity,
-                  Reminder: e.target.value == "1" ? true : false,
+                  bitReminder: e.target.value == "1" ? true : false,
                 })
               }
             >
-              <option value="1" selected={editedActivity.Reminder}>
+              <option value="1" selected={editedActivity.bitReminder}>
                 Yes
               </option>
-              <option value="2" selected={!editedActivity.Reminder}>
+              <option value="2" selected={!editedActivity.bitReminder}>
                 No
               </option>
             </select>
@@ -198,18 +261,48 @@ function Activites() {
       <div className="fs-1 text-center mb-2 mt-5 fw-bold">
         To Do List Management
       </div>
-      <div className="fs-3 text-warning">Warning ! Nearest Deadline: </div>
-      <div className="fs-6">
-        Your activity named <strong>"Sports"</strong> is going to close in 3
-        hours.
-      </div>
-      <div className="fs-6">
-        Do you want to mark it as done?{" "}
-        <button className="btn btn-sm btn-primary ms-2 me-2">Yes,please</button>
-        <button className="btn btn-sm btn-danger btn-primary ms-2 me-2">
-          Maybe later
-        </button>
-      </div>
+      <div className="fs-3 text-center mb-2">Local Time : {currentTime}</div>
+
+      {disableWarning ? (
+        <div className="mb-5">
+          <button
+            className="btn btn-light"
+            onClick={() => setDisableWarning(false)}
+          >
+            Show me warnings
+          </button>
+        </div>
+      ) : null}
+
+      {!disableWarning ? (
+        <div className="row mt-5 mb-5">
+          <div className="col-6">
+            <div className="alert alert-warning">
+              <div className="fs-2">Warning ! Nearest Deadline: </div>
+              <div className="fs-4">
+                Your activity named <strong>{mostUrgent.txtName}</strong> is
+                going to close in{" "}
+                {getDuration(moment(), moment(mostUrgent.dtTimestamp))} hour
+              </div>
+              <div className="fs-5">
+                Do you want to mark it as done?{" "}
+                <button
+                  className="btn btn-sm btn-primary ms-2 me-2"
+                  onClick={() => updateWarnings(mostUrgent)}
+                >
+                  Yes,please
+                </button>
+                <button
+                  className="btn btn-sm btn-danger btn-primary ms-2 me-2"
+                  onClick={() => setDisableWarning(true)}
+                >
+                  Do not show warning again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 mb-4">
         {isShowForm ? (
@@ -282,7 +375,11 @@ function Activites() {
       </div>
 
       <div className="fs-2 mt-5 mb-2 text-center fw-bold">
-        Your Unfinished Activity
+        Your Unfinished Activity <FontAwesomeIcon icon={faTimes} color="red" />
+      </div>
+      <div className="mb-2">
+        This is your unfinished activities, please make sure to finish it before
+        the due date comes.
       </div>
 
       <table className="table">
@@ -299,48 +396,53 @@ function Activites() {
           </tr>
         </thead>
         <tbody>
-          {activitiesData &&
-            activitiesData.map((activity, idx) => {
+          {unFinishedActivities &&
+            unFinishedActivities.map((activity, idx) => {
               return (
                 <tr key={idx}>
                   <th scope="row">{idx + 1}</th>
-                  <td>{activity.Name}</td>
+                  <td>{activity.txtName}</td>
                   <td
                     className={`due-tab ${
-                      getDuration(moment(), moment(activity.TimeStamp)) <= 24
+                      getDuration(moment(), moment(activity.dtTimestamp)) <= 24
                         ? `text-danger`
                         : ""
                     }`}
                   >
                     <OverlayTrigger
                       placement="top"
-                      overlay={renderTooltip(activity.TimeStamp)}
+                      overlay={renderTooltip(activity.dtTimestamp)}
                     >
-                      <div>{moment(activity.TimeStamp).fromNow()}</div>
+                      <div>
+                        {getDuration(moment(), moment(activity.dtTimestamp)) <=
+                        24
+                          ? `${getDuration(
+                              moment(),
+                              moment(activity.dtTimestamp)
+                            )} hours`
+                          : moment(activity.dtTimestamp).fromNow()}
+                      </div>
                     </OverlayTrigger>
                   </td>
-                  <td>{activity.Description}</td>
-                  <td>{activity.Reminder ? "Yes" : "No"}</td>
+                  <td>{activity.txtDescription}</td>
+                  <td>{activity.bitReminder ? "Yes" : "No"}</td>
                   <td>
-                    <button
-                      className="btn btn-warning btn-sm"
+                    <FontAwesomeIcon
+                      icon={faEdit}
                       onClick={() => handleEdit(activity)}
-                    >
-                      Edit
-                    </button>
+                    />
                   </td>
                   <td>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(activity.Id)}
-                    >
-                      Delete
-                    </button>
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      color="red"
+                      onClick={() => handleDelete(activity.txtId)}
+                    ></FontAwesomeIcon>
                   </td>
                   <td>
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => handleDelete(activity.Id)}
+                      onClick={() => handleFinish(activity)}
                     >
                       Finish
                     </button>
@@ -352,7 +454,13 @@ function Activites() {
       </table>
 
       <div className="fs-2 mt-5 mb-2 text-center fw-bold">
-        Your Finished Activity
+        Your Finished Activity{" "}
+        <FontAwesomeIcon icon={faCheckSquare} color="green" />
+      </div>
+
+      <div className="mb-2">
+        This is your finished activities, you can revert anytime if there is
+        something that needs to be added.
       </div>
 
       <table className="table">
@@ -369,51 +477,40 @@ function Activites() {
           </tr>
         </thead>
         <tbody>
-          {activitiesData &&
-            activitiesData.map((activity, idx) => {
+          {finishedActivities &&
+            finishedActivities.map((activity, idx) => {
               return (
                 <tr key={idx}>
                   <th scope="row">{idx + 1}</th>
-                  <td>{activity.Name}</td>
-                  <td
-                    className={`due-tab ${
-                      getDuration(moment(), moment(activity.TimeStamp)) <= 24
-                        ? `text-danger`
-                        : ""
-                    }`}
-                  >
+                  <td>{activity.txtName}</td>
+                  <td className={`due-tab`}>
                     <OverlayTrigger
                       placement="top"
-                      overlay={renderTooltip(activity.TimeStamp)}
+                      overlay={renderTooltip(activity.dtTimestamp)}
                     >
-                      <div>{moment(activity.TimeStamp).fromNow()}</div>
+                      <div>{moment(activity.dtTimestamp).fromNow()}</div>
                     </OverlayTrigger>
                   </td>
-                  <td>{activity.Description}</td>
-                  <td>{activity.Reminder ? "Yes" : "No"}</td>
+                  <td>{activity.txtDescription}</td>
+                  <td>{activity.bitReminder ? "Yes" : "No"}</td>
                   <td>
-                    <button
-                      className="btn btn-warning btn-sm"
+                    <FontAwesomeIcon
+                      icon={faEdit}
                       onClick={() => handleEdit(activity)}
-                    >
-                      Edit
-                    </button>
+                    />
                   </td>
                   <td>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(activity.Id)}
-                    >
-                      Delete
-                    </button>
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      color="red"
+                      onClick={() => handleDelete(activity.txtId)}
+                    ></FontAwesomeIcon>
                   </td>
                   <td>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handleDelete(activity.Id)}
-                    >
-                      Undo Finish
-                    </button>
+                    <FontAwesomeIcon
+                      icon={faUndo}
+                      onClick={() => handleDelete(activity.txtId)}
+                    />
                   </td>
                 </tr>
               );
